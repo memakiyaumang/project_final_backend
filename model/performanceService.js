@@ -229,65 +229,59 @@ const getStudentPerformancePrediction = async (
         );
 
 
+       
         /* =====================================================
            7. CALL PYTHON ML SERVICE
         ===================================================== */
 
-        const response =
-            await fetch(
-                ML_PERFORMANCE_URL,
-                {
-                    method: "POST",
+        const response = await fetch(ML_PERFORMANCE_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(performanceData),
+            signal: AbortSignal.timeout(60000)
+        });
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+        const contentType =
+            response.headers.get("content-type") || "";
 
-                    body:
-                        JSON.stringify(
-                            performanceData
-                        )
-                }
-            );
+        const responseText = await response.text();
 
+        console.log("========== ML SERVICE RESPONSE ==========");
+        console.log("ML URL:", ML_PERFORMANCE_URL);
+        console.log("HTTP Status:", response.status);
+        console.log("Content-Type:", contentType);
+        console.log("Response Body:", responseText.slice(0, 3000));
+        console.log("==========================================");
 
         if (!response.ok) {
-
-            const errorText =
-                await response.text();
-
-
-            console.error(
-                "Performance ML Service Error:",
-                errorText
-            );
-
-
             throw new Error(
-                "Performance ML service returned an error."
+                `ML service returned HTTP ${response.status}: ${responseText.slice(0, 500)}`
             );
         }
 
+        let result;
+
+        try {
+            result = JSON.parse(responseText);
+        } catch {
+            throw new Error(
+                `ML service returned invalid JSON. Content-Type: ${contentType}. Body: ${responseText.slice(0, 500)}`
+            );
+        }
 
         /* =====================================================
            8. ML RESPONSE
         ===================================================== */
 
-        const result =
-            await response.json();
-
-
-        console.log(
-            "ML Performance Result:",
-            result
-        );
-
+        console.log("ML Performance Result:", result);
 
         if (!result.success) {
-
             throw new Error(
                 result.message ||
+                result.error ||
                 "Performance prediction failed."
             );
         }
