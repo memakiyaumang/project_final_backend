@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 import genrateToken from "../utils/jwtutils.js";
 import { sendEmail } from "../utils/emailService.js";
+import { OAuth2Client } from "google-auth-library";
 
 // =============================================
 // BREVO - ACCOUNT APPROVAL EMAIL
@@ -72,6 +73,10 @@ LearnDesk Team
     return false;
   }
 };
+
+const googleClient = new OAuth2Client(
+    process.env.GOOGLE_CLIENT_ID
+);
 
 
 // =============================================
@@ -1766,6 +1771,174 @@ export const adminDeleteStudent = async (
             success: false,
             message: "Unable to delete student.",
             error: error.message
+        });
+    }
+};
+
+
+export const googleAuth = async (req, res) => {
+    try {
+        const { credential, role, mode } = req.body;
+
+        // Validate request
+        if (!credential || !role || !mode) {
+            return res.status(400).json({
+                success: false,
+                message: "Credential, role and mode are required."
+            });
+        }
+
+        if (!["student", "faculty"].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid role."
+            });
+        }
+
+        if (!["login", "register"].includes(mode)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid authentication mode."
+            });
+        }
+
+        if (!process.env.GOOGLE_CLIENT_ID) {
+            return res.status(500).json({
+                success: false,
+                message: "Google authentication is not configured."
+            });
+        }
+
+        // Verify Google ID token on the backend
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const payload = ticket.getPayload();
+
+        if (
+            !payload ||
+            !payload.sub ||
+            !payload.email ||
+            payload.email_verified !== true
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Google account verification failed."
+            });
+        }
+
+        const googleId = payload.sub;
+        const email = payload.email.toLowerCase().trim();
+        const name = payload.name?.trim() || email.split("@")[0];
+
+        // Find account by verified email
+        let user = await User.findOne({ email });
+
+        // =========================
+        // GOOGLE REGISTRATION
+        // =========================
+        if (mode === "register") {
+            if (user) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "An account with this email already exists. Please use your existing login method."
+                });
+            }
+
+            user = new User({
+                name,
+                email,
+                googleId,
+                role,
+                qualification: "",
+                specialization: "",
+                status: "pending"
+            });
+
+            await user.save();
+
+            return res.status(201).json({
+                success: true,
+                message:
+                    "Registration successful. Your account is pending admin approval.",
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    status: user.status
+                }
+            });
+        }
+
+        // =========================
+        // GOOGLE LOGIN
+        // =========================
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Account not found. Please register first."
+            });
+        }
+
+        // Do not silently link an existing password account
+        if (user.googleId !== googleId) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    "This account is not linked to Google. Please use your existing login method."
+            });
+        }
+
+        if (user.role !== role) {
+            return res.status(403).json({
+                success: false,
+                message: "Please select the correct account role."
+            });
+        }
+
+        if (user.status === "pending") {
+            return res.status(403).json({
+                success: false,
+                status: "pending",
+                message: "Your account is awaiting admin approval."
+            });
+        }
+
+        if (user.status === "rejected") {
+            return res.status(403).json({
+                success: false,
+                status: "rejected",
+                message: "Your account registration has been rejected."
+            });
+        }
+
+        // Approved user: issue the same JWT used by normal login
+        const token = genrateToken(user);
+
+        return res.status(200).json({
+            success: true,
+            message: "Google login successful.",
+            token,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                status: user.status
+            }
+        });
+
+    } catch (error) {
+        console.error("Google authentication error:", error);
+
+        return res.status(401).json({
+            success: false,
+            message: "Google authentication failed. Please try again."
         });
     }
 };

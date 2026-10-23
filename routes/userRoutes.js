@@ -1,88 +1,49 @@
+
 import express from "express";
 
 import {
-
-    // ===============================
-    // COMMON USER CONTROLLERS
-    // ===============================
-
+    // Common user controllers
     register,
     login,
-
+    googleAuth,
     getUser,
     getUserById,
-
     updateUserStatus,
     updateUser,
-
     deleteUser,
 
-
-    // ===============================
-    // FACULTY PROFILE
-    // ===============================
-
+    // Faculty profile
     getFacultyProfile,
 
-
-    // ===============================
-    // ADMIN FACULTY CONTROLLERS
-    // ===============================
-
+    // Admin faculty controllers
     adminGetFaculty,
     adminAddFaculty,
     adminUpdateFaculty,
     adminUpdateFacultyStatus,
     adminDeleteFaculty,
 
+    // Admin student controllers
     adminGetStudents,
-adminUpdateStudent,
-adminUpdateStudentStatus,
-adminDeleteStudent,
-
-
+    adminUpdateStudent,
+    adminUpdateStudentStatus,
+    adminDeleteStudent,
 } from "../controller/userDataController.js";
 
-
-import authenticateToken 
-from "../utils/authMiddleware.js";
-
-
-import adminAuthMiddleware 
-from "../utils/adminAuthMiddleware.js";
-
+import authenticateToken from "../utils/authMiddleware.js";
+import adminAuthMiddleware from "../utils/adminAuthMiddleware.js";
 
 const route = express.Router();
 
+// Register student / faculty
+route.post("/api/register", register);
 
+// Login student / faculty
+route.post("/api/login", login);
 
-// =====================================================
-// REGISTER STUDENT / FACULTY
-// =====================================================
+// Google login / registration
+route.post("/api/google-auth", googleAuth);
 
-route.post(
-    "/api/register",
-    register
-);
-
-
-
-// =====================================================
-// LOGIN STUDENT / FACULTY
-// =====================================================
-
-route.post(
-    "/api/login",
-    login
-);
-
-
-
-
-// =====================================================
-// ADMIN - GET ALL USERS (STUDENT + FACULTY)
-// =====================================================
-
+// Admin - get all users
 route.get(
     "/api/get-userdata",
     adminAuthMiddleware,
@@ -95,26 +56,12 @@ route.get(
     getUser
 );
 
-
-
-
-// =====================================================
-// ADMIN FACULTY MANAGEMENT
-// =====================================================
-
-
-// GET ALL FACULTY
-
+// Admin faculty management
 route.get(
     "/api/admin-faculty",
     adminAuthMiddleware,
     adminGetFaculty
 );
-
-
-
-
-// ADD FACULTY
 
 route.post(
     "/api/admin/add-faculty",
@@ -122,21 +69,11 @@ route.post(
     adminAddFaculty
 );
 
-
-
-
-// UPDATE FACULTY
-
 route.put(
     "/api/admin/update-faculty/:id",
     adminAuthMiddleware,
     adminUpdateFaculty
 );
-
-
-
-
-// UPDATE FACULTY STATUS
 
 route.put(
     "/api/admin/faculty-status/:id",
@@ -144,107 +81,51 @@ route.put(
     adminUpdateFacultyStatus
 );
 
-
-
-
-// DELETE FACULTY
-
 route.delete(
     "/api/admin/delete-faculty/:id",
     adminAuthMiddleware,
     adminDeleteFaculty
 );
 
-
-
-
-
-// =====================================================
-// FACULTY PROFILE
-// Student / Faculty JWT
-// =====================================================
-
+// Faculty profile
 route.get(
     "/api/faculty-profile/:facultyId",
     authenticateToken,
     getFacultyProfile
 );
 
-
-
-
-
-// =====================================================
-// UPDATE USER STATUS
-// Student / Faculty
-// =====================================================
-
+// Update user status
 route.put(
     "/api/update-user-status/:id",
     updateUserStatus
 );
 
-
-
-
-
-// =====================================================
-// UPDATE USER PROFILE
-// Student / Faculty JWT
-// =====================================================
-
+// Update user profile
 route.put(
     "/api/update-user/:id",
     authenticateToken,
     updateUser
 );
 
-
-
-
-
-// =====================================================
-// DELETE USER
-// Student / Faculty
-// =====================================================
-
+// Delete user
 route.delete(
     "/api/delete-user/:id",
     deleteUser
 );
 
-
-
-
-
-// =====================================================
-// GET USER BY ID
-// Student / Faculty JWT
-// =====================================================
-
+// Get user by ID
 route.get(
     "/api/get-user/:id",
     authenticateToken,
     getUserById
 );
 
-
-// =====================================================
-// ADMIN - STUDENT MANAGEMENT
-// =====================================================
-
-
-// GET ALL STUDENTS
-
+// Admin student management
 route.get(
     "/api/admin-students",
     adminAuthMiddleware,
     adminGetStudents
 );
-
-
-
-// UPDATE STUDENT
 
 route.put(
     "/api/admin/update-student/:id",
@@ -252,25 +133,16 @@ route.put(
     adminUpdateStudent
 );
 
-
-
-// UPDATE STUDENT STATUS
-
 route.put(
     "/api/admin/student-status/:id",
     adminAuthMiddleware,
     adminUpdateStudentStatus
 );
 
-
-
-// DELETE STUDENT
-
 route.delete(
     "/api/admin/delete-student/:id",
     adminAuthMiddleware,
     adminDeleteStudent
 );
-
 
 export default route;
