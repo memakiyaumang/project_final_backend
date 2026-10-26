@@ -1710,58 +1710,76 @@ export const adminUpdateStudentStatus = async (req, res) => {
 // ADMIN - DELETE STUDENT
 // =====================================================
 
-export const adminDeleteStudent = async (
-    req,
-    res
-) => {
+export const adminDeleteStudent = async (req, res) => {
     try {
-
         const { id } = req.params;
 
-
         // ---------------------------------------------
-        // VALIDATE ID
+        // VALIDATE STUDENT ID
         // ---------------------------------------------
-
         if (!mongoose.Types.ObjectId.isValid(id)) {
-
             return res.status(400).json({
                 success: false,
                 message: "Invalid student ID."
             });
         }
 
-
         // ---------------------------------------------
-        // DELETE ONLY STUDENT
+        // FIND STUDENT
         // ---------------------------------------------
+        const student = await User.findOne({
+            _id: id,
+            role: "student"
+        });
 
-        const deletedStudent =
-            await User.findOneAndDelete({
-                _id: id,
-                role: "student"
-            });
-
-
-        if (!deletedStudent) {
-
+        if (!student) {
             return res.status(404).json({
                 success: false,
                 message: "Student not found."
             });
         }
 
+        // ---------------------------------------------
+        // DELETE RELATED ENROLLMENTS
+        // Enrollment model uses studentId and studentEmail
+        // ---------------------------------------------
+        const studentId = String(student._id);
+        const studentEmail = String(student.email || "")
+            .trim()
+            .toLowerCase();
 
+        const enrollmentFilter = {
+            $or: [
+                { studentId: studentId },
+                { studentEmail: studentEmail }
+            ]
+        };
+
+        const deletedEnrollments = await Enrollment.deleteMany(
+            enrollmentFilter
+        );
+
+        // ---------------------------------------------
+        // DELETE STUDENT
+        // ---------------------------------------------
+        await User.findOneAndDelete({
+            _id: id,
+            role: "student"
+        });
+
+        // ---------------------------------------------
+        // SUCCESS RESPONSE
+        // ---------------------------------------------
         return res.status(200).json({
             success: true,
-            message: "Student deleted successfully.",
+            message: "Student and related enrollments deleted successfully.",
             data: {
-                id: deletedStudent._id
+                id: student._id,
+                deletedEnrollments: deletedEnrollments.deletedCount
             }
         });
 
     } catch (error) {
-
         console.error(
             "Admin Delete Student Error:",
             error
@@ -1774,7 +1792,6 @@ export const adminDeleteStudent = async (
         });
     }
 };
-
 
 export const googleAuth = async (req, res) => {
     try {
